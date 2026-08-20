@@ -35,10 +35,38 @@ struct Args {
     game_executable: String,
     debug: bool,
 }
+const HELP: &str = concat!(
+    "Better Multiplayer Launcher v",
+    env!("CARGO_PKG_VERSION"),
+    "
+
+USAGE:
+    launcher [OPTIONS]
+
+OPTIONS:
+    -h, --help                        Print this help message and exit
+        --skip-updates                Skip the update check          [env: DEN_SKIP_UPDATES]
+        --skip-url-scheme             Don't register the URL scheme handler
+        --updater-repo-owner <OWNER>  Owner of the update repository [env: DEN_REPO_OWNER]
+        --updater-repo-name <NAME>    Name of the update repository  [env: DEN_REPO_NAME]
+        --updater-repo-private-key <KEY>
+                                      Private key used to access a private update repository
+        --content-dir <DIR>           Directory containing the mod content [env: DEN_CONTENT_DIR]
+        --dll-name <NAME>             Name of the DLL to inject      [env: DEN_DLL_NAME]
+        --game-executable <NAME>      Game executable to launch      [env: DEN_GAME_EXECUTABLE]
+        --debug                       Enable debug logging           [env: DEN_DEBUG]
+"
+);
 
 impl Args {
     fn parse() -> Result<Self, pico_args::Error> {
         let mut pargs = pico_args::Arguments::from_env();
+
+        if pargs.contains(["-h", "--help"]) {
+            print!("{HELP}");
+            std::process::exit(0);
+        }
+
         Ok(Args {
             skip_updates: pargs.contains("--skip-updates")
                 || std::env::var("DEN_SKIP_UPDATES").is_ok(),
