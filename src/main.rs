@@ -19,9 +19,9 @@ use logging::{den_panic_hook, enable_ansi_support, setup_logging};
 use updater::start_updater;
 
 use crate::{
-    constants::{RELEASE_PUBLIC_KEY, URL_PREFIX},
+    constants::{RELEASE_PUBLIC_KEY, SINGLE_INSTANCE_MUTEX, URL_PREFIX},
     launcher_error::LauncherError,
-    util::wait_for_exit,
+    util::{SingleInstance, acquire_single_instance, wait_for_exit},
 };
 
 struct Args {
@@ -139,6 +139,15 @@ fn main() {
     if url_arg.is_none() {
         setup_logging(args.debug);
     }
+
+    let _instance_guard = match acquire_single_instance(SINGLE_INSTANCE_MUTEX) {
+        SingleInstance::Acquired(guard) => Some(guard),
+        SingleInstance::AlreadyRunning => {
+            tracing::warn!("Another launcher instance is already running, exiting.");
+            return;
+        }
+        SingleInstance::Unavailable => None,
+    };
 
     if !args.skip_url_scheme {
         let exe = std::env::current_exe().expect("Failed to get current exe path");

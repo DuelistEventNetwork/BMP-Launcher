@@ -25,3 +25,5 @@ pub const URL_SCHEME: &str = "bmp";
 pub const URL_PREFIX: &str = "bmp://";
 
 pub const IPC_PIPE_NAME: &str = r"\\.\pipe\better_multiplayer_ipc";
+
+pub const SINGLE_INSTANCE_MUTEX: &str = r"Local\better_multiplayer_launcher";

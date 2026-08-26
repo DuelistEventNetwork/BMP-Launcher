@@ -2,10 +2,13 @@ use crate::launcher_error::LauncherError;
 use std::io::Read;
 use windows::{
     Win32::{
-        Foundation::ERROR_SUCCESS,
-        System::Registry::{
-            HKEY, KEY_READ, KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ, REG_VALUE_TYPE,
-            RegCloseKey, RegCreateKeyExW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
+        Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, ERROR_SUCCESS, HANDLE},
+        System::{
+            Registry::{
+                HKEY, KEY_READ, KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ, REG_VALUE_TYPE,
+                RegCloseKey, RegCreateKeyExW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
+            },
+            Threading::CreateMutexW,
         },
     },
     core::PCWSTR,
@@ -13,6 +16,46 @@ use windows::{
 
 pub fn wstr(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(Some(0)).collect()
+}
+
+pub struct SingleInstanceGuard(HANDLE);
+
+impl Drop for SingleInstanceGuard {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = CloseHandle(self.0);
+        }
+    }
+}
+
+pub enum SingleInstance {
+    Acquired(SingleInstanceGuard),
+    AlreadyRunning,
+    Unavailable,
+}
+
+pub fn acquire_single_instance(name: &str) -> SingleInstance {
+    let name_w = wstr(name);
+
+    match unsafe { CreateMutexW(None, true, PCWSTR(name_w.as_ptr())) } {
+        Ok(handle) => {
+            let already_exists =
+                windows::core::Error::from_thread().code() == ERROR_ALREADY_EXISTS.to_hresult();
+
+            if already_exists {
+                unsafe {
+                    let _ = CloseHandle(handle);
+                }
+                SingleInstance::AlreadyRunning
+            } else {
+                SingleInstance::Acquired(SingleInstanceGuard(handle))
+            }
+        }
+        Err(e) => {
+            tracing::debug!("Failed to create single-instance mutex: {e}");
+            SingleInstance::Unavailable
+        }
+    }
 }
 
 pub fn reg_read(hkey_root: HKEY, subkey: &str, value_name: &str) -> Result<String, LauncherError> {
