@@ -43,29 +43,8 @@ fn is_under_tmp(path: &Path) -> bool {
     })
 }
 
-const COMMON_PROXY_DLLS: &[&str] = &[
-    "dinput8.dll",
-    "dxgi.dll",
-    "d3d9.dll",
-    "d3d11.dll",
-    "d3d12.dll",
-    "xinput1_3.dll",
-    "xinput1_4.dll",
-    "d3dx9_43.dll",
-    "d3dx11_43.dll",
-    "winhttp.dll",
-];
-
 fn is_steam_running() -> bool {
     !get_pids_by_name("steam.exe").is_empty()
-}
-
-fn find_common_proxy_dlls(dir: &Path) -> Vec<String> {
-    COMMON_PROXY_DLLS
-        .iter()
-        .filter(|name| dir.join(name).exists())
-        .map(|name| name.to_string())
-        .collect()
 }
 
 fn open_process_by_pid(pid: u32) -> Option<HANDLE> {
@@ -148,9 +127,6 @@ pub fn start_game(
 
     // Setup paths
     let executable_path = locate_steam_game(game_executable)?;
-    let game_folder = executable_path
-        .parent()
-        .ok_or("Failed to get game executable parent directory")?;
     tracing::info!("Located game executable at {}", executable_path.display());
     let current_exe = std::env::current_exe()?;
     let parent_dir = current_exe
@@ -182,24 +158,6 @@ pub fn start_game(
             "The content directory \"{}\" does not exist. This usually means the release ZIP was not fully extracted. Unpack the entire archive, not just the launcher executable.",
             content_dir_path.display()
         )));
-    }
-
-    if !debug {
-        let proxy_dlls = find_common_proxy_dlls(game_folder);
-        if !proxy_dlls.is_empty() {
-            tracing::error!(
-                "Found suspicious DLL files in the game folder:\n\t - {}",
-                proxy_dlls.join("\n\t - ")
-            );
-            tracing::error!(
-                "Better Multiplayer is not compatible with mod loaders, and using mods can lead you to being banned from the Better Multiplayer server."
-            );
-            tracing::error!(
-                "Please remove the above files from the game folder \"{}\" before launching.",
-                game_folder.display()
-            );
-            return Err(LauncherError::ModsDetected);
-        }
     }
 
     let dll_path = content_dir_path.join(dll_name);

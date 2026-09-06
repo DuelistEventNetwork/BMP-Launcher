@@ -44,9 +44,6 @@ pub enum LauncherError {
     #[error("unsupported launch path: {0}")]
     UnsupportedLaunchPath(String),
 
-    #[error("suspicious DLL files found in game folder")]
-    ModsDetected,
-
     #[error("DLL injection failed: {0}")]
     InjectionFailed(String),
 
