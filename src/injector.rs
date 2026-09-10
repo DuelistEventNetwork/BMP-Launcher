@@ -107,6 +107,7 @@ pub fn start_game(
     content_dir: &PathBuf,
     dll_name: &str,
     game_executable: &str,
+    game_dir: Option<&PathBuf>,
     debug: bool,
 ) -> Result<(), LauncherError> {
     if !is_steam_running() {
@@ -126,7 +127,19 @@ pub fn start_game(
     }
 
     // Setup paths
-    let executable_path = locate_steam_game(game_executable)?;
+    let executable_path = match game_dir {
+        Some(dir) => {
+            let path = dir.join(game_executable);
+            if !path.exists() {
+                return Err(LauncherError::GameNotFound(format!(
+                    "Game executable not found at explicit game dir: {}",
+                    path.display()
+                )));
+            }
+            path
+        }
+        None => locate_steam_game(game_executable)?,
+    };
     tracing::info!("Located game executable at {}", executable_path.display());
     let current_exe = std::env::current_exe()?;
     let parent_dir = current_exe

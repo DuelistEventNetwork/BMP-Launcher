@@ -33,6 +33,7 @@ struct Args {
     content_dir: PathBuf,
     dll_name: String,
     game_executable: String,
+    game_dir: Option<PathBuf>,
     debug: bool,
 }
 const HELP: &str = concat!(
@@ -54,6 +55,8 @@ OPTIONS:
         --content-dir <DIR>           Directory containing the mod content [env: DEN_CONTENT_DIR]
         --dll-name <NAME>             Name of the DLL to inject      [env: DEN_DLL_NAME]
         --game-executable <NAME>      Game executable to launch      [env: DEN_GAME_EXECUTABLE]
+        --game-dir <DIR>              Explicit game directory, skipping Steam
+                                      library lookup                 [env: DEN_GAME_DIR]
         --debug                       Enable debug logging           [env: DEN_DEBUG]
 "
 );
@@ -92,6 +95,9 @@ impl Args {
                 .opt_value_from_str("--game-executable")?
                 .or_else(|| std::env::var("DEN_GAME_EXECUTABLE").ok())
                 .unwrap_or_else(|| ELDENRING_EXE.to_owned()),
+            game_dir: pargs
+                .opt_value_from_str::<_, PathBuf>("--game-dir")?
+                .or_else(|| std::env::var_os("DEN_GAME_DIR").map(Into::into)),
             debug: pargs.contains("--debug") || std::env::var("DEN_DEBUG").is_ok(),
         })
     }
@@ -140,13 +146,18 @@ fn main() {
         setup_logging(args.debug);
     }
 
-    let _instance_guard = match acquire_single_instance(SINGLE_INSTANCE_MUTEX) {
-        SingleInstance::Acquired(guard) => Some(guard),
-        SingleInstance::AlreadyRunning => {
-            tracing::warn!("Another launcher instance is already running, exiting.");
-            return;
+    let _instance_guard = if args.game_dir.is_some() {
+        tracing::warn!("Skipping single-instance check, because --game-dir/DEN_GAME_DIR is set");
+        None
+    } else {
+        match acquire_single_instance(SINGLE_INSTANCE_MUTEX) {
+            SingleInstance::Acquired(guard) => Some(guard),
+            SingleInstance::AlreadyRunning => {
+                tracing::warn!("Another launcher instance is already running, exiting.");
+                return;
+            }
+            SingleInstance::Unavailable => None,
         }
-        SingleInstance::Unavailable => None,
     };
 
     if !args.skip_url_scheme {
@@ -199,6 +210,7 @@ fn main() {
         &args.content_dir,
         &args.dll_name,
         &args.game_executable,
+        args.game_dir.as_ref(),
         args.debug,
     ) {
         tracing::error!("Failed to start Elden Ring: {}", err);
