@@ -12,7 +12,7 @@ use windows::{
 };
 
 use crate::{
-    constants::{IPC_PIPE_NAME, LAUNCHER_NAME, URL_SCHEME},
+    constants::{DISCORD_APP_ID, IPC_PIPE_NAME, LAUNCHER_NAME, URL_SCHEME},
     launcher_error::LauncherError,
     util::{reg_read, reg_write, wstr},
 };
@@ -112,6 +112,38 @@ pub fn try_register_url_scheme(launcher_exe: &str) -> Result<(), LauncherError> 
     tracing::debug!(
         "Registered {}:// URL scheme to {}",
         URL_SCHEME,
+        launcher_exe
+    );
+
+    Ok(())
+}
+
+pub fn try_register_discord_app(launcher_exe: &str) -> Result<(), LauncherError> {
+    let base_key = format!(r"Software\Classes\discord-{DISCORD_APP_ID}");
+    let icon_key = format!(r"{base_key}\DefaultIcon");
+    let command_key = format!(r"{base_key}\shell\open\command");
+    let expected_command = format!("\"{launcher_exe}\"");
+
+    if reg_read(HKEY_CURRENT_USER, &command_key, "").is_ok_and(|ec| ec == expected_command)
+        && reg_read(HKEY_CURRENT_USER, &icon_key, "").is_ok_and(|ei| ei == launcher_exe)
+    {
+        tracing::debug!("Discord app registration is up to date");
+        return Ok(());
+    }
+
+    reg_write(
+        HKEY_CURRENT_USER,
+        &base_key,
+        "",
+        &format!("URL:Run game {DISCORD_APP_ID} protocol"),
+    )?;
+    reg_write(HKEY_CURRENT_USER, &base_key, "URL Protocol", "")?;
+    reg_write(HKEY_CURRENT_USER, &icon_key, "", launcher_exe)?;
+    reg_write(HKEY_CURRENT_USER, &command_key, "", &expected_command)?;
+
+    tracing::debug!(
+        "Registered Discord app {} to {}",
+        DISCORD_APP_ID,
         launcher_exe
     );
 

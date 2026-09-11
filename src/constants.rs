@@ -1,3 +1,4 @@
+use dotenvy_macro::dotenv;
 use windows::Win32::System::Threading::{
     PROCESS_ACCESS_RIGHTS, PROCESS_CREATE_THREAD, PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE,
     PROCESS_VM_OPERATION, PROCESS_VM_READ, PROCESS_VM_WRITE,
@@ -27,3 +28,5 @@ pub const URL_PREFIX: &str = "bmp://";
 pub const IPC_PIPE_NAME: &str = r"\\.\pipe\better_multiplayer_ipc";
 
 pub const SINGLE_INSTANCE_MUTEX: &str = r"Local\better_multiplayer_launcher";
+
+pub const DISCORD_APP_ID: &str = dotenv!("DISCORD_APP_ID");

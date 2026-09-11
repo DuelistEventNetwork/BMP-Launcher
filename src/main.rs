@@ -166,6 +166,10 @@ fn main() {
             tracing::error!("Failed to register URL scheme: {e}");
             wait_for_exit();
         }
+        if let Err(e) = url_handler::try_register_discord_app(&exe.to_string_lossy()) {
+            tracing::error!("Failed to register Discord app: {e}");
+            wait_for_exit();
+        }
     }
 
     tracing::info!(
